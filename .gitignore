@@ -1,0 +1,31 @@
+# Local runtime data (never publish someone's library index/config)
+data/config.json
+data/index.db
+data/index.db-*
+data/thumbs/
+data/*_progress.json
+data/delete_log.jsonl
+data/.DS_Store
+
+# Keep the data directory in git
+!data/
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor / tooling
+.idea/
+.vscode/
+*.swp
+*~

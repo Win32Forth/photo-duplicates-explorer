@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Duplicates Explorer</title>
+  <link rel="stylesheet" href="/styles.css?v=10" />
+</head>
+<body>
+  <div class="app">
+    <p class="eyebrow">Local photo library tool</p>
+    <h1>Duplicates Explorer</h1>
+    <p class="sub">Point at any photo folder (NAS share, external drive, or local disk). Browse, find duplicates, and clean up safely. Deletes go to <code>.explorer-trash/</code> inside that folder by default.</p>
+
+    <div class="tabs" id="tabs">
+      <button type="button" class="tab" data-view="setup">Setup</button>
+      <button type="button" class="tab active" data-view="browse">Browse</button>
+      <button type="button" class="tab" data-view="duplicates">Duplicates</button>
+    </div>
+
+    <div id="view-setup" hidden>
+      <div class="panel">
+        <strong>Photo library folder</strong>
+        <p class="hint">Choose the root folder that contains your photos. On a Synology Mac mount this is often something like <code>/Volumes/BackupData/PhotoVideoAudio/Photos</code>.</p>
+        <p class="status" id="setupStatus">Checking setup…</p>
+        <div class="form setup-form">
+          <input id="setupRoot" type="text" placeholder="/path/to/your/photos" />
+          <button type="button" id="chooseFolder">Choose folder…</button>
+          <button type="button" id="saveSetup">Save folder</button>
+          <button type="button" class="ghost" id="startIndex">Build / refresh index</button>
+        </div>
+        <p class="hint" id="setupHint"></p>
+      </div>
+    </div>
+
+    <div id="view-browse">
+      <div class="layout">
+        <aside class="panel sidebar">
+          <strong>Albums / top folders</strong>
+          <p class="hint">Click a folder to focus. “All” shows everything indexed.</p>
+          <div class="tops" id="tops"></div>
+          <strong>Years</strong>
+          <div class="years" id="years"></div>
+          <strong>Subfolders</strong>
+          <ul class="folder-list" id="folders"></ul>
+        </aside>
+
+        <main>
+          <form class="form main-form" id="form">
+            <input id="q" type="search" placeholder="Search filename or folder…" />
+            <select id="kind">
+              <option value="image">Images</option>
+              <option value="video">Videos</option>
+              <option value="all">Images + videos</option>
+            </select>
+            <button type="submit">Search</button>
+            <button type="button" class="ghost" id="clear">Clear</button>
+          </form>
+
+          <div class="toolbar" id="toolbar">
+            <label class="check-all"><input type="checkbox" id="selectPage" /> Select page</label>
+            <span id="selCount">0 selected</span>
+            <button type="button" id="deleteSelected" disabled>Delete selected…</button>
+            <span class="toolbar-spacer"></span>
+            <span id="trashInfo" class="hint">Trash: …</span>
+            <button type="button" class="ghost danger" id="emptyTrash" disabled>Empty trash…</button>
+          </div>
+
+          <p class="status" id="status">Loading…</p>
+          <div class="grid" id="grid"></div>
+          <div class="pager" id="pager" hidden>
+            <button type="button" id="prev">Previous</button>
+            <span id="pageLabel"></span>
+            <button type="button" id="next">Next</button>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <div id="view-duplicates" hidden>
+      <div class="panel dup-panel">
+        <div class="dup-head">
+          <div>
+            <strong>Duplicate finder</strong>
+            <p class="hint" id="dupStats">Loading duplicate stats…</p>
+          </div>
+          <div class="dup-actions">
+            <button type="button" id="startDupScan">Find / continue duplicates</button>
+            <button type="button" class="ghost" id="refreshDups">Refresh</button>
+            <button type="button" id="deleteSelectedGroups" disabled>Delete selected Duplicate Groups</button>
+          </div>
+        </div>
+        <div class="dup-select-bar">
+          <label class="check-all"><input type="checkbox" id="selectDupPage" /> Select groups on this page</label>
+          <span id="dupGroupSelCount" class="hint">0 groups selected</span>
+        </div>
+        <p class="status" id="dupStatus"></p>
+        <div id="dupGroups"></div>
+        <div class="pager" id="dupPager" hidden>
+          <button type="button" id="dupPrev">Previous</button>
+          <span id="dupPageLabel"></span>
+          <button type="button" id="dupNext">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <div class="lightbox-panel">
+      <img id="lbImg" alt="" />
+      <div class="lightbox-meta" id="lbMeta"></div>
+      <div class="lightbox-actions">
+        <a id="lbOpen" href="#" target="_blank" rel="noopener"><button type="button">Open full size</button></a>
+        <button type="button" id="lbDelete">Delete…</button>
+        <button type="button" class="ghost" id="lbClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="deleteModal" hidden>
+    <div class="modal-panel">
+      <h2>Confirm delete</h2>
+      <p id="deleteSummary"></p>
+      <ul id="deleteList" class="delete-list"></ul>
+      <label class="mode-row">
+        <input type="radio" name="delMode" value="trash" checked />
+        Move to <code>.explorer-trash/</code> inside your library (recommended — recoverable)
+      </label>
+      <label class="mode-row">
+        <input type="radio" name="delMode" value="permanent" />
+        Permanent delete (type DELETE below)
+      </label>
+      <input id="deletePhrase" type="text" placeholder='Type DELETE for permanent' hidden />
+      <div class="lightbox-actions">
+        <button type="button" id="confirmDelete">Confirm</button>
+        <button type="button" class="ghost" id="cancelDelete">Cancel</button>
+      </div>
+      <p class="hint" id="deleteError"></p>
+    </div>
+  </div>
+
+  <div class="modal" id="emptyTrashModal" hidden>
+    <div class="modal-panel">
+      <h2>Empty explorer trash</h2>
+      <p id="emptyTrashSummary">This permanently deletes everything inside <code>.explorer-trash/</code>. It cannot be undone.</p>
+      <p class="hint">Your main photo library is not touched — only the trash folder.</p>
+      <input id="emptyTrashPhrase" type="text" placeholder='Type EMPTY to confirm' />
+      <div class="lightbox-actions">
+        <button type="button" id="confirmEmptyTrash">Empty trash permanently</button>
+        <button type="button" class="ghost" id="cancelEmptyTrash">Cancel</button>
+      </div>
+      <p class="hint" id="emptyTrashError"></p>
+    </div>
+  </div>
+
+  <script src="/app.js?v=10"></script>
+</body>
+</html>
